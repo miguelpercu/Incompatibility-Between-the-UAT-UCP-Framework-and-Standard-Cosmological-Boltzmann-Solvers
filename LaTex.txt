@@ -1,0 +1,148 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{hyperref}
+
+\title{\textbf{Structural Incompatibility Between the UAT/UCP Framework and Standard Cosmological Boltzmann Solvers:\\Technical Requirements and Current Limitations}}
+\author{
+    Miguel \'Angel Percudani\\
+    \small Independent Researcher, Puan, Buenos Aires, Argentina\\
+    \small \texttt{miguel\_percudani@yahoo.com.ar}\\[0.2cm]
+    \small ORCID: 0009-0007-1748-3212
+}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+The Unified Applicable Time (UAT) and Unified Causal Principle (UCP) framework is not an extension of the standard \(\Lambda\)CDM model. It introduces a different description of temporal evolution and causal coherence, which cannot be embedded into existing cosmological Boltzmann solvers by parameter adjustment alone. Codes such as CLASS and CAMB are built around the Friedmann--Lema\^itre--Robertson--Walker metric and the standard conformal time. A faithful implementation of UAT/UCP would require rewriting the background evolution, the perturbation equations, the primordial spectrum, and the line-of-sight transfer modules. This note documents those structural requirements and explains why, at present, no functional UAT/UCP Boltzmann solver exists. As a consequence, the CMB and large-scale structure predictions of the framework remain limited to analytical and semi-analytical approximations. This document does not propose modifications to the source code of any existing solver; it records the boundary conditions that future numerical work must satisfy.
+\end{abstract}
+
+\section{Introduction}
+The UAT/UCP framework \cite{UAT_main, UPC_main} is an independent descriptive metric of reality. It does not modify the \(\Lambda\)CDM model by introducing a new equation of state or an additional fluid. Instead, it changes the treatment of time and causal coherence from the foundations. This difference has direct consequences for numerical cosmology.
+
+Standard Boltzmann solvers, such as CLASS and CAMB, are designed under specific geometric and dynamical assumptions. When a theory falls outside those assumptions, the solver cannot simply receive new parameter values. The internal modules must be redesigned.
+
+This note documents the structural incompatibility and the technical requirements for a future UAT/UCP solver. It is not a coding guide and does not claim that such a solver has been built.
+
+\section{UAT/UCP Is Not an Extension of \(\Lambda\)CDM}
+In \(\Lambda\)CDM, the universe is described by the FLRW metric,
+\begin{equation}
+ds^2 = -dt^2 + a^2(t)\left[ \frac{dr^2}{1-Kr^2} + r^2 d\Omega^2 \right],
+\end{equation}
+and the expansion history follows the Friedmann equation,
+\begin{equation}
+H^2(a) = H_0^2\left[\Omega_r a^{-4} + \Omega_m a^{-3} + \Omega_\Lambda\right].
+\end{equation}
+The time coordinate \(t\) enters as a passive affine parameter. Perturbations are evolved in conformal time \(\tau\), defined by \(d\tau = dt/a\).
+
+UAT/UCP does not assume this structure as fundamental. Its temporal evolution is governed by a different causal principle. Therefore, inserting UAT/UCP quantities into a solver that already assumes standard \(t\) and \(\tau\) is not a matter of fitting parameters. The resulting equations are not equivalent to a smooth modification of \(\Lambda\)CDM.
+
+\section{Assumptions Built into CLASS and CAMB}
+Existing solvers rely on at least four structural assumptions that UAT/UCP would need to revisit.
+
+\begin{enumerate}
+    \item \textbf{Background geometry.} The scale factor \(a(t)\) is obtained by integrating the Friedmann equation with standard energy-density components.
+    \item \textbf{Conformal time as evolution parameter.} Perturbation equations are written as derivatives with respect to \(\tau\).
+    \item \textbf{Linear perturbation theory over FLRW.} Scalar, vector, and tensor modes are evolved with gravitational potentials derived from standard Einstein equations.
+    \item \textbf{Standard transfer geometry.} The mapping from perturbations to angular power spectra uses the comoving distance \(\chi = \tau_0 - \tau\).
+\end{enumerate}
+
+It is also important to clarify that CLASS and CAMB are not driven by raw observational data. They solve a specific theoretical model: general relativity on an FLRW background with the standard cosmological parameters. They therefore inherit both the strengths and the limitations of that model. Observational tensions such as the Hubble tension are not errors in the data; they indicate that the underlying model may be incomplete. In this sense, incompatibility with a new framework such as UAT/UCP is not evidence against the framework: it is evidence that the solver is specialised to a different set of assumptions.
+
+If UAT/UCP does not share all of these assumptions, its implementation cannot be local. The affected modules are not independent: the background determines the time variable, which determines the perturbation derivatives, which determine the transfer functions.
+
+\section{Required Rewrites for a UAT/UCP Solver}
+A faithful implementation would require redesigning the following modules.
+
+\subsection{Background evolution}
+The background module would need to integrate the equations governing \(a(t)\) under UAT/UCP dynamics. This includes redefining the independent time variable and the effective expansion rate. The standard Friedmann equation may not be the correct starting point.
+
+\subsection{Perturbation equations}
+The linear perturbation system would need to be derived from the UAT/UCP action. This implies a new set of Einstein--Boltzmann equations. The gravitational potentials, the photon-baryon coupling, and the matter velocity equations must be recomputed consistently with the UAT/UCP background.
+
+\subsection{Primordial initial conditions}
+The initial power spectrum and the initial conditions for scalar and tensor perturbations must be consistent with the UAT/UCP early-time behaviour. The assumptions of near scale-invariant fluctuations from inflation may or may not carry over. This must be established, not assumed.
+
+\subsection{Line-of-sight integration}
+The transfer module would need to use the UAT/UCP comoving distance and angular diameter distance. The standard relation \(\chi = \tau_0 - \tau\) may no longer be valid if the time variable differs from conformal time.
+
+\subsection{Mapping to Existing Solver Source Files}
+Although this note is not a coding guide, it is useful to state explicitly that the four structural elements listed above correspond, in existing public codes, to the following typical source modules:
+
+\begin{itemize}
+    \item \texttt{background.c} --- background evolution and the definition of the independent time variable.
+    \item \texttt{perturbations.c} --- the system of coupled perturbation equations.
+    \item \texttt{primordial.c} --- initial conditions and the primordial spectrum.
+    \item \texttt{transfer.c} --- line-of-sight projection and transfer functions.
+\end{itemize}
+
+A UAT/UCP implementation would need to replace or rewrite the content of these modules, not merely adjust their input parameters.
+
+\section{Why Parameter Fitting Is Not Sufficient}
+A common but incorrect shortcut is to run a standard solver and adjust only the expansion history \(H(z)\). This fails because:
+
+\begin{itemize}
+    \item The perturbation equations are not updated to match the new background.
+    \item The time variable used inside the solver remains the standard conformal time.
+    \item The growth of structure, the CMB spectra, and the lensing projections are computed with the old geometry.
+\end{itemize}
+
+Therefore, even if \(H(z)\) from UAT/UCP were inserted into a Boltzmann code, the output would not represent the full UAT/UCP model. It would be a hybrid object, neither \(\Lambda\)CDM nor UAT/UCP.
+
+\section{Current Status}
+At the time of writing, there is no operational UAT/UCP Boltzmann solver. The framework has been tested through analytical and semi-analytical methods, including modified Friedmann integrations, growth-rate comparisons, and chronometer-based tests. These are valuable but incomplete.
+
+The lack of a full solver limits the ability to compute:
+\begin{itemize}
+    \item precise CMB temperature and polarisation spectra;
+    \item the matter power spectrum at all scales;
+    \item the lensing potential power spectrum;
+    \item reliable BAO predictions from first principles.
+\end{itemize}
+
+Until a dedicated solver is developed, the cosmological predictions of UAT/UCP must be treated as approximations.
+
+\section{Requirements for Future Numerical Work}
+A future UAT/UCP solver should satisfy the following conditions.
+
+\begin{enumerate}
+    \item \textbf{Independent implementation.} It should not depend on the internal time or background assumptions of CLASS or CAMB.
+    \item \textbf{Consistent equations.} The background, perturbations, initial conditions, and transfer functions must all be derived from the same UAT/UCP action.
+    \item \textbf{Validation.} The solver must reproduce standard \(\Lambda\)CDM results in the limit where UAT/UCP reduces to ordinary FLRW dynamics, if such a limit exists.
+    \item \textbf{Public code.} The source code should be available for independent verification.
+\end{enumerate}
+
+This is a substantial software and theoretical project. It exceeds the scope of a simple modification of existing codes.
+
+\section{Conclusion}
+The incompatibility between UAT/UCP and standard Boltzmann solvers is not a numerical bug. It is a structural consequence of using different definitions of time, background evolution, and causal dynamics. A proper UAT/UCP implementation requires rewriting the core modules of any cosmological code, from the background to the line-of-sight transfer.
+
+This note documents that requirement and states clearly that such a solver does not yet exist. The limitation is technical, not observational. It does not refute UAT/UCP, but it prevents full CMB and structure-formation predictions until the necessary numerical infrastructure is built.
+
+\vspace{3mm}
+\noindent\textbf{Acknowledgments:} The author thanks the developers of CLASS and CAMB for making their codes public, which allowed the technical boundaries described here to be identified.
+
+\begin{thebibliography}{99}
+
+\bibitem{UAT_main}
+M.~A.~Percudani, \textit{Universal Applied Time (UAT/UCP): A Fundamental Theory of Cosmology from First Principles}, Zenodo, 2024. DOI: \texttt{10.5281/zenodo.17729221}.
+
+\bibitem{UPC_main}
+M.~A.~Percudani, \textit{The Causal Coherence Constant \(\kappa_{\text{crit}}\): A Fundamental Limit on Retrocausal Influence}, Zenodo, 2024. DOI: \texttt{10.5281/zenodo.18210808}.
+
+\bibitem{CLASS}
+D.~Blas, J.~Lesgourgues, and T.~Tram, \textit{The Cosmic Linear Anisotropy Solving System (CLASS) II: Approximation schemes}, JCAP \textbf{07}, 034 (2011).
+
+\bibitem{CAMB}
+A.~Lewis, A.~Challinor, and A.~Lasenby, \textit{Efficient Computation of Cosmic Microwave Background Anisotropies in Closed Friedmann-Robertson-Walker Models}, ApJ \textbf{538}, 473 (2000).
+
+\bibitem{UAT_limitations}
+M.~A.~Percudani, \textit{Technical Limitations Encountered in the UAT/UCP Validation Programme}, Zenodo, 2026.
+
+\end{thebibliography}
+
+\end{document}
